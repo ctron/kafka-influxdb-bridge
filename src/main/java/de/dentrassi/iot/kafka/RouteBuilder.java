@@ -42,7 +42,7 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
 
                     final Message msg = Parser.parseMessage(x.getIn().getBody(ByteBuffer.class));
 
-                    final Luminosity wifi = msg.getEntry(15, Luminosity.class);
+                    final Luminosity wifi = msg.getEntry(21, Luminosity.class);
                     if (wifi == null) {
                         x.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
                         return;
