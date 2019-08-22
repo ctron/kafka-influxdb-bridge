@@ -12,59 +12,57 @@
 package de.dentrassi.iot.kafka;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 import org.apache.camel.Exchange;
 import org.influxdb.dto.Point;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import de.dentrassi.iot.cayenne.lpp.Message;
+import de.dentrassi.iot.cayenne.lpp.Parser;
+import de.dentrassi.iot.cayenne.lpp.types.Luminosity;
+
 @Component
 public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
 
-	private @Value("${bridge.influxdb.database}") String database;
-	private @Value("${bridge.influxdb.retention-policy}") String retentionPolicy;
+    private @Value("${bridge.influxdb.database}") String database;
+    private @Value("${bridge.influxdb.retention-policy}") String retentionPolicy;
 
-	@Override
-	public void configure() throws Exception {
-		from("kafka:{{kafka.topic}}?brokers={{kafka.brokers}}&groupId={{kafka.group-id}}")
+    @Override
+    public void configure() throws Exception {
+        from("kafka:{{kafka.topic}}?brokers={{kafka.brokers}}&groupId={{kafka.group-id}}")
 
-				.log("Before: ${body} - ${headers}")
+                .log("Before: ${body} - ${headers}")
 
-				// decode base64
-				.unmarshal().base64()
+                // decode base64
+                .unmarshal().base64()
 
-				// convert to influxdb
-				.process(x -> {
+                // convert to influxdb
+                .process(x -> {
 
-					final ByteBuffer payload = x.getIn()
-							.getBody(ByteBuffer.class)
-							.order(ByteOrder.LITTLE_ENDIAN);
+                    final Message msg = Parser.parseMessage(x.getIn().getBody(ByteBuffer.class));
 
-					if (payload.remaining() < 2) {
-						x.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
-						return;
-					}
+                    final Luminosity wifi = msg.getEntry(15, Luminosity.class);
+                    if (wifi == null) {
+                        x.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
+                        return;
+                    }
 
-					final Point.Builder p = Point
-							.measurement("pax")
-							.tag("device",x.getIn().getHeader("kafka.KEY", String.class));
+                    final Point.Builder p = Point
+                            .measurement("pax")
+                            .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
 
-					p.addField("wifi", payload.getShort());
+                    p.addField("wifi", wifi.getValue());
 
-					if (payload.remaining() >= 2) {
-						p.addField("bluetooth", payload.getShort());
-					}
+                    x.getIn().setBody(p.build());
 
-					x.getIn().setBody(p.build());
+                })
 
-				})
+                .log("Processed: ${body}")
 
-				.log("Processed: ${body}")
-
-				// send to influxdb
-				.to("influxdb:influxdbConnection?databaseName=" + this.database + "&retentionPolicy="
-						+ this.retentionPolicy);
-	}
+                // send to influxdb
+                .to("influxdb:influxdbConnection?databaseName=" + this.database + "&retentionPolicy="
+                        + this.retentionPolicy);
+    }
 
 }
