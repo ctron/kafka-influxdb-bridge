@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import de.dentrassi.iot.cayenne.lpp.Message;
 import de.dentrassi.iot.cayenne.lpp.Parser;
 import de.dentrassi.iot.cayenne.lpp.types.Luminosity;
+import de.dentrassi.iot.cayenne.lpp.types.Temperature;
 
 @Component
 public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
@@ -43,18 +44,17 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
                     final Message msg = Parser.parseMessage(x.getIn().getBody(ByteBuffer.class));
 
                     final Luminosity wifi = msg.getEntry(21, Luminosity.class);
-                    if (wifi == null) {
+
+                    final Luminosity airq = msg.getEntry(31, Luminosity.class);
+                    final Temperature temp = msg.getEntry(26, Temperature.class);
+
+                    if (wifi != null) {
+                        processWifi(x, wifi);
+                    } else if (airq != null && temp != null) {
+                        processAir(x, airq, temp);
+                    } else {
                         x.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
-                        return;
                     }
-
-                    final Point.Builder p = Point
-                            .measurement("pax")
-                            .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
-
-                    p.addField("wifi", wifi.getValue());
-
-                    x.getIn().setBody(p.build());
 
                 })
 
@@ -63,6 +63,27 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
                 // send to influxdb
                 .to("influxdb:influxdbConnection?databaseName=" + this.database + "&retentionPolicy="
                         + this.retentionPolicy);
+    }
+
+    private void processAir(final Exchange x, final Luminosity airq, final Temperature temp) {
+        final Point.Builder p = Point
+                .measurement("air")
+                .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
+
+        p.addField("airq", airq.getValue());
+        p.addField("temp", temp.getValue());
+
+        x.getIn().setBody(p.build());
+    }
+
+    private void processWifi(final Exchange x, final Luminosity wifi) {
+        final Point.Builder p = Point
+                .measurement("pax")
+                .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
+
+        p.addField("wifi", wifi.getValue());
+
+        x.getIn().setBody(p.build());
     }
 
 }
