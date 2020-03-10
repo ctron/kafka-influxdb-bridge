@@ -20,7 +20,9 @@ import org.springframework.stereotype.Component;
 
 import de.dentrassi.iot.cayenne.lpp.Message;
 import de.dentrassi.iot.cayenne.lpp.Parser;
+import de.dentrassi.iot.cayenne.lpp.types.BarometricPressure;
 import de.dentrassi.iot.cayenne.lpp.types.Luminosity;
+import de.dentrassi.iot.cayenne.lpp.types.RelativeHumidity;
 import de.dentrassi.iot.cayenne.lpp.types.Temperature;
 
 @Component
@@ -45,13 +47,15 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
 
                     final Luminosity wifi = msg.getEntry(21, Luminosity.class);
 
+                    final BarometricPressure pressure = msg.getEntry(30, BarometricPressure.class);
+                    final RelativeHumidity humidity = msg.getEntry(29, RelativeHumidity.class);
                     final Luminosity airq = msg.getEntry(31, Luminosity.class);
                     final Temperature temp = msg.getEntry(26, Temperature.class);
 
                     if (wifi != null) {
                         processWifi(x, wifi);
-                    } else if (airq != null && temp != null) {
-                        processAir(x, airq, temp);
+                    } else if (airq != null && temp != null && pressure != null && humidity != null) {
+                        processAir(x, airq, temp, pressure, humidity);
                     } else {
                         x.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
                     }
@@ -65,13 +69,15 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
                         + this.retentionPolicy);
     }
 
-    private void processAir(final Exchange x, final Luminosity airq, final Temperature temp) {
+    private void processAir(final Exchange x, final Luminosity airq, final Temperature temp, final BarometricPressure pressure, final RelativeHumidity humidity) {
         final Point.Builder p = Point
                 .measurement("air")
                 .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
 
         p.addField("airq", airq.getValue());
         p.addField("temp", temp.getValue());
+        p.addField("pressure", pressure.getValue());
+        p.addField("humidity", humidity.getValue());
 
         x.getIn().setBody(p.build());
     }
