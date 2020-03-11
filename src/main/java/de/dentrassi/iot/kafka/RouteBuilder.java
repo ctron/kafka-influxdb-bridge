@@ -74,6 +74,11 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
                 .measurement("air")
                 .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
 
+        final String deviceAlias = x.getIn().getHeader("deviceAlias", String.class);
+        if (deviceAlias != null && !deviceAlias.isBlank()) {
+            p.tag("deviceAlias", deviceAlias);
+        }
+
         p.addField("airq", airq.getValue());
         p.addField("temp", temp.getValue());
         p.addField("pressure", pressure.getValue());
