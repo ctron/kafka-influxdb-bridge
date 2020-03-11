@@ -75,7 +75,7 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
                 .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
 
         final String deviceAlias = x.getIn().getHeader("deviceAlias", String.class);
-        if (deviceAlias != null && !deviceAlias.isBlank()) {
+        if (deviceAlias != null && !deviceAlias.isEmpty()) {
             p.tag("deviceAlias", deviceAlias);
         }
 
