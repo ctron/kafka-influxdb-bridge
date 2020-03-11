@@ -36,6 +36,7 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
         from("kafka:{{kafka.topic}}?brokers={{kafka.brokers}}&groupId={{kafka.group-id}}")
 
                 .log("Before: ${body} - ${headers}")
+                .log("Alias: ${headers[deviceAlias]}")
 
                 // decode base64
                 .unmarshal().base64()
@@ -91,6 +92,11 @@ public class RouteBuilder extends org.apache.camel.builder.RouteBuilder {
         final Point.Builder p = Point
                 .measurement("pax")
                 .tag("device", x.getIn().getHeader("kafka.KEY", String.class));
+
+        final String deviceAlias = x.getIn().getHeader("deviceAlias", String.class);
+        if (deviceAlias != null && !deviceAlias.isEmpty()) {
+            p.tag("deviceAlias", deviceAlias);
+        }
 
         p.addField("wifi", wifi.getValue());
 
